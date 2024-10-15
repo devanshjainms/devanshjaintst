@@ -1,0 +1,38 @@
+# This file is used to create cronjobs in kubernetes backend-printing service.
+# The cronjobs are used to run the fetchprintitems and sendprintjobs scripts every minute.
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fetchprintitems
+spec:
+  schedule: "*/1 * * * *" 
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: my-service-account
+          containers:
+          - name: fetchprintitems
+            image: 
+            command: ["python", "-m", "src.fetchprintitems"]
+          restartPolicy: OnFailure
+
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sendprintjobs
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: my-service-account
+          containers:
+          - name: sendprintjobs
+            image: 
+            command: ["python", "-m", "src.sendprintjobs"]
+          restartPolicy: OnFailure
