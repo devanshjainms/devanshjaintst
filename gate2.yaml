@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"  # Internal load balancer
+spec:
+  selector:
+    istio: ingressgateway
+  ports:
+  - name: http2
+    port: 8000  # Accept traffic on port 8000
+    targetPort: 80
+  type: LoadBalancer
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-printing
+  labels:
+    app: backend-printing
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-printing
+  template:
+    metadata:
+      labels:
+        app: backend-printing
+    spec:
+      containers:
+      - name: backend-printing
+        image: your-container-image:latest
+        ports:
+        - containerPort: 8000
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-printing
+  labels:
+    app: backend-printing
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app: backend-printing
+
+---
+
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: backend-printing-gateway
+  namespace: istio-system  # Istio components typically reside in the 'istio-system' namespace
+spec:
+  selector:
+    istio: ingressgateway  # This selects the Istio ingress gateway
+  servers:
+  - port:
+      number: 8000
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"  # Accept traffic from any host within the VNet
+
+---
+
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: backend-printing
+spec:
+  gateways:
+  - backend-printing-gateway  # Reference the Istio Gateway created earlier
+  hosts:
+  - "*"  # Accept traffic for all hosts
+  http:
+  - match:
+    - uri:
+        exact: /  # Route traffic for '/' path
+    route:
+    - destination:
+        host: backend-printing.default.svc.cluster.local
+        port:
+          number: 8000
+  - match:
+    - uri:
+        exact: /validator  # Route traffic for '/validator' path
+    route:
+    - destination:
+        host: backend-printing.default.svc.cluster.local
+        port:
+          number: 8000
